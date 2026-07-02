@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SoberSight — Synthetic Case Study Simulator</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script>
+  tailwind.config = {
+    theme: { extend: { fontFamily: { sans: ['Inter','system-ui','sans-serif'] },
+      colors: { accent: {50:'#ecfdf5',100:'#d1fae5',600:'#059669',700:'#047857'} } } }
+  };
+</script>
+<style>
+  html{font-family:Inter,system-ui,sans-serif}
+  .fade-in{animation:fade .25s ease-out}
+  @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+  .spin{animation:rot 1s linear infinite}
+  @keyframes rot{to{transform:rotate(360deg)}}
+  input[type=range]{-webkit-appearance:none;height:4px;border-radius:9999px;background:#e4e4e7}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:9999px;background:#059669;cursor:pointer;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.25)}
+  input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:9999px;background:#059669;cursor:pointer;border:2px solid #fff}
+  @media (prefers-reduced-motion:reduce){.fade-in,.spin{animation:none}}
+</style>
+</head>
+<body class="bg-zinc-50 text-zinc-900 antialiased">
+
+<div class="min-h-screen flex flex-col lg:flex-row">
+
+  <!-- ============ CONFIGURATION SIDEBAR ============ -->
+  <aside class="w-full lg:w-[340px] lg:min-h-screen bg-white border-b lg:border-b-0 lg:border-r border-zinc-200 p-6 flex-shrink-0">
+    <header class="mb-6">
+      <div class="flex items-center gap-2.5">
+        <div class="w-8 h-8 rounded-lg bg-accent-600 flex items-center justify-center text-white font-bold text-sm select-none">S</div>
+        <div>
+          <h1 class="text-lg font-semibold tracking-tight leading-none">SoberSight</h1>
+          <p class="text-[11px] text-zinc-500 mt-0.5">Synthetic Case Study Simulator</p>
+        </div>
+      </div>
+    </header>
+
+    <!-- API configuration -->
+    <details class="group mb-6 rounded-xl border border-zinc-200 bg-zinc-50/60 open:bg-white" id="apiDetails">
+      <summary class="flex items-center justify-between px-4 py-3 cursor-pointer select-none text-sm font-medium">
+        <span class="flex items-center gap-2">
+          <span id="apiDot" class="w-2 h-2 rounded-full bg-zinc-300"></span> API Configuration
+        </span>
+        <svg class="w-4 h-4 text-zinc-400 group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+      </summary>
+      <div class="px-4 pb-4 space-y-3">
+        <div>
+          <label class="block text-xs font-medium text-zinc-600 mb-1" for="provider">Provider</label>
+          <select id="provider" class="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent-600/30 focus:border-accent-600">
+            <option value="anthropic">Anthropic</option>
+            <option value="openai">OpenAI</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-zinc-600 mb-1" for="apiKey">API key</label>
+          <input id="apiKey" type="password" placeholder="sk-..." autocomplete="off"
+            class="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent-600/30 focus:border-accent-600">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-zinc-600 mb-1" for="model">Model</label>
+          <input id="model" type="text" class="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent-600/30 focus:border-accent-600">
+        </div>
+        <div class="flex gap-2">
+          <button onclick="App.saveKey()" class="flex-1 rounded-lg bg-zinc-900 text-white text-xs font-medium py-2 hover:bg-zinc-700 transition-colors">Save key</button>
+          <button onclick="App.clearKey()" class="rounded-lg border border-zinc-300 text-xs font-medium px-3 py-2 hover:bg-zinc-100 transition-colors">Clear</button>
+        </div>
+        <p id="storageNote" class="text-[11px] text-zinc-500 leading-snug">Your key is stored only in this browser (localStorage) and sent only to the provider you select. It never leaves your machine otherwise.</p>
+      </div>
+    </details>
+
+    <!-- Scenario parameters -->
+    <div class="space-y-5">
+      <div>
+        <label class="block text-xs font-semibold uppercase tracking-wide text-zinc-500 mb-1.5" for="modality">Group modality</label>
+        <select id="modality" class="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-accent-600/30 focus:border-accent-600">
+          <option>Relapse Prevention Skills</option>
+          <option>CBT for Cravings</option>
+          <option>Psychoeducation on Triggers</option>
+          <option>Stages of Change Seminar</option>
+          <option>Sober Support &amp; Community Building</option>
+        </select>
+      </div>
+
+      <div>
+        <p class="text-xs font-semibold uppercase tracking-wide text-zinc-500 mb-2">Dynamics &amp; resistance</p>
+        <div class="space-y-3.5" id="sliders"></div>
+      </div>
+
+      <div>
+        <label class="block text-xs font-semibold uppercase tracking-wide text-zinc-500 mb-1.5">Participants
+          <span id="countVal" class="ml-1 text-accent-700 font-bold">6</span></label>
+        <input id="count" type="range" min="4" max="8" value="6" class="w-full"
+          oninput="document.getElementById('countVal').textContent=this.value">
+        <div class="flex justify-between text-[10px] text-zinc-400 mt-1"><span>4</span><span>8</span></div>
+      </div>
+
+      <div>
+        <p class="text-xs font-semibold uppercase tracking-wide text-zinc-500 mb-2">Clinical themes</p>
+        <div id="themes" class="flex flex-wrap gap-1.5"></div>
+      </div>
+
+      <button id="generateBtn" onclick="App.generate()"
+        class="w-full rounded-xl bg-accent-600 hover:bg-accent-700 text-white font-semibold text-sm py-3 transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-accent-600/40 disabled:opacity-50 disabled:cursor-not-allowed">
+        Generate Simulation
+      </button>
+      <p class="text-[11px] text-zinc-400 leading-snug">All output is computer-generated fiction for clinician training. Never enter real client information.</p>
+    </div>
+  </aside>
+
+  <!-- ============ OUTPUT PANEL ============ -->
+  <main class="flex-1 p-5 lg:p-8 max-w-5xl">
+
+    <!-- Permanent training banner (matches watermark baked into all text output) -->
+    <div class="mb-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-[12px] text-amber-800 flex items-center gap-2">
+      <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126z"/></svg>
+      <span><strong>Fictional training simulation.</strong> Not a clinical record — every export carries a permanent training watermark.</span>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
+      <nav id="tabs" class="inline-flex rounded-lg border border-zinc-200 bg-white p-1 shadow-sm" role="tablist"></nav>
+      <div class="flex items-center gap-2">
+        <button onclick="App.generate()" title="Regenerate with same parameters"
+          class="rounded-lg border border-zinc-300 bg-white p-2 hover:bg-zinc-100 transition-colors" aria-label="Regenerate">
+          <svg class="w-4 h-4 text-zinc-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"/></svg>
+        </button>
+        <button id="copyBtn" onclick="App.copy(this)"
+          class="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-xs font-medium hover:bg-zinc-100 transition-colors">Copy to Clipboard</button>
+        <button onclick="App.download()" title="Download text file"
+          class="rounded-lg border border-zinc-300 bg-white p-2 hover:bg-zinc-100 transition-colors" aria-label="Download text file">
+          <svg class="w-4 h-4 text-zinc-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- States -->
+    <div id="emptyState" class="rounded-2xl border border-dashed border-zinc-300 bg-white p-12 text-center">
+      <div class="w-12 h-12 mx-auto rounded-xl bg-accent-50 flex items-center justify-center mb-4">
+        <svg class="w-6 h-6 text-accent-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+      </div>
+      <h2 class="text-sm font-semibold mb-1">No simulation yet</h2>
+      <p id="emptyMsg" class="text-xs text-zinc-500 max-w-sm mx-auto leading-relaxed">Configure a scenario in the sidebar and select Generate Simulation. An API key is required — open API Configuration to add one.</p>
+    </div>
+
+    <div id="loadingState" class="hidden rounded-2xl border border-zinc-200 bg-white p-12 text-center">
+      <svg class="w-7 h-7 mx-auto text-accent-600 spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-20" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3"/><path d="M12 2a10 10 0 019.54 7" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>
+      <p class="text-xs text-zinc-500 mt-3">Generating fictional simulation…</p>
+    </div>
+
+    <div id="errorState" class="hidden rounded-2xl border border-red-200 bg-red-50 p-6">
+      <h2 class="text-sm font-semibold text-red-800 mb-1">Generation failed</h2>
+      <p id="errorMsg" class="text-xs text-red-700 leading-relaxed"></p>
+    </div>
+
+    <!-- Results -->
+    <div id="results" class="hidden fade-in space-y-6">
+      <section class="rounded-2xl border border-zinc-200 bg-white shadow-sm">
+        <header class="px-6 pt-5 pb-3 border-b border-zinc-100 flex items-center justify-between">
+          <h2 class="text-sm font-semibold">Facilitator's Overall Summary</h2>
+          <span id="phaseBadge" class="text-[11px] font-medium text-accent-700 bg-accent-50 rounded-full px-2.5 py-1"></span>
+        </header>
+        <div id="summaryBody" class="px-6 py-5 text-[13.5px] leading-relaxed text-zinc-700 whitespace-pre-wrap"></div>
+      </section>
+
+      <section>
+        <h2 class="text-sm font-semibold mb-3">Individual Observational Snippets <span class="text-zinc-400 font-normal">(fictional participants)</span></h2>
+        <div id="memberCards" class="grid gap-4 md:grid-cols-2"></div>
+      </section>
+    </div>
+  </main>
+</div>
+
+<script>
+"use strict";
+
+/* =====================================================================
+   SoberSight — modular vanilla JS
+   Modules: Store (key persistence), Names, Prompt, Api, Format, App (UI)
+   Hardcoded safety properties (do not remove):
+     - WATERMARK applied to every rendered/copied/downloaded output
+     - fictional placeholder names generated client-side and enforced
+       in the prompt; model is instructed to invent no other identities
+   ===================================================================== */
+
+const WATERMARK_TOP =
+  "========================================================================\n" +
+  "  FICTIONAL TRAINING SIMULATION — NOT A CLINICAL RECORD\n" +
+  "  All persons, statements, and events are computer-generated fiction\n" +
+  "  produced by SoberSight for clinician education.\n" +
+  "  Not valid for any chart, claim, or record of service.\n" +
+  "========================================================================";
+const WATERMARK_BOTTOM =
+  "------------------------------------------------------------------------\n" +
+  "  END OF FICTIONAL TRAINING SIMULATION — generated sample, not a record\n" +
+  "------------------------------------------------------------------------";
+
+/* ---------- Store: localStorage with in-memory fallback ----------
+   (Sandboxed previews, e.g. inside Claude.ai, block localStorage;
+   opened locally as a file it persists normally.) */
+const Store = (() => {
+  let mem = {};
+  let persistent = true;
+  try { localStorage.setItem("__t","1"); localStorage.removeItem("__t"); }
+  catch { persistent = false; }
+  return {
+    get: k => persistent ? localStorage.getItem(k) : (mem[k] ?? null),
+    set: (k,v) => { persistent ? localStorage.setItem(k,v) : (mem[k]=v); },
+    del: k => { persistent ? localStorage.removeItem(k) : delete mem[k]; },
+    persistent: () => persistent,
+  };
+})();
+
+/* ---------- Names: fictional placeholder identities ---------- */
+const Names = (() => {
+  const FIRST = ["Avery","Jordan","Riley","Casey","Morgan","Quinn","Reese","Dakota",
+    "Rowan","Skyler","Finley","Hayden","Kendall","Marley","Parker","Sage","Tatum",
+    "Blake","Devon","Ellis","Harper","Kai","Micah","Wren"];
+  const INITIALS = "BCDFGHKLMNPRSTW";
+  return {
+    generate(n) {
+      const pool = [...FIRST].sort(() => Math.random() - .5).slice(0, n);
+      return pool.map(f => `${f} ${INITIALS[Math.floor(Math.random()*INITIALS.length)]}.`);
+    }
+  };
+})();
+
+/* ---------- Prompt builder ---------- */
+const SLIDER_DEFS = [
+  { id:"denial",    label:"High Denial / Minimization" },
+  { id:"crosstalk", label:"Active Cross-Talking" },
+  { id:"guarded",   label:"Overly Quiet / Guarded" },
+  { id:"dominant",  label:"Dominant Speaker" },
+];
+const THEME_DEFS = ["Identifying High-Risk Situations","Managing Cravings",
+  "Post-Acute Withdrawal (PAWS)","Building a Sober Support Network",
+  "Boundaries in Early Recovery","Shame & Self-Forgiveness",
+  "Structuring Unstructured Time","Family Repair & Trust"];
+
+const Prompt = {
+  levelWord(v) { return v < 25 ? "minimal" : v < 50 ? "mild" : v < 75 ? "moderate" : "pronounced"; },
+  build(cfg) {
+    const dyn = SLIDER_DEFS.map(s => `- ${s.label}: ${this.levelWord(cfg.sliders[s.id])} (${cfg.sliders[s.id]}/100)`).join("\n");
+    return `You are generating an ENTIRELY FICTIONAL substance use treatment group simulation for clinician training. Every participant is invented. Use ONLY the placeholder names provided below. Do not invent surnames, real facilities, dates of birth, or any identifying details. This is an educational simulator; write realistic, professional clinical observations from the facilitator's perspective.
+
+SCENARIO PARAMETERS
+Group modality: ${cfg.modality}
+Participants (fictional placeholder names, use exactly these): ${cfg.names.join(", ")}
+Clinical themes to weave in: ${cfg.themes.length ? cfg.themes.join("; ") : "facilitator's choice"}
+Group dynamics to depict:
+${dyn}
+
+Reflect the dynamics faithfully: high values should visibly shape participation patterns, facilitator interventions (redirection, reflection, limit-setting), and climate.
+
+Respond with ONLY a valid JSON object, no markdown fences, matching exactly this schema:
+{
+  "sessionTopic": "one-line session topic",
+  "groupPhase": "e.g., Working stage",
+  "climate": "2-3 sentence objective description of group climate reflecting the dynamics",
+  "interventions": ["facilitator intervention 1","intervention 2"],
+  "collectiveThemes": ["theme","theme"],
+  "summary": {
+    "subjective": "collective member-reported content, 2-3 sentences",
+    "objective": "observed group behavior, 2-3 sentences",
+    "assessment": "clinical assessment of group process, 2-3 sentences",
+    "plan": "facilitator plan for next session, 1-2 sentences",
+    "narrative": "a flowing 5-7 sentence chronological narrative log of the session"
+  },
+  "members": [
+    {
+      "name": "exact placeholder name",
+      "stageOfChange": "Precontemplation|Contemplation|Preparation|Action|Maintenance",
+      "participationStyle": "one-line description",
+      "defenseMechanisms": ["e.g., rationalization"],
+      "verbal": "what this member reported/said, 1-2 sentences, facilitator's paraphrase",
+      "nonverbal": "observed non-verbal cues, 1 sentence",
+      "peerInteraction": "interaction with peers, 1 sentence",
+      "plan": "individual follow-up plan, 1 sentence"
+    }
+  ]
+}
+Include exactly ${cfg.names.length} member objects, one per provided name. Vary stages of change and defense mechanisms plausibly across members.`;
+  }
+};
+
+/* ---------- Api: provider calls ---------- */
+const Api = {
+  defaults: { anthropic: "claude-sonnet-4-6", openai: "gpt-4o-mini" },
+  async call(provider, key, model, prompt) {
+    if (provider === "anthropic") {
+      const r = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "x-api-key": key,
+          "anthropic-version": "2023-06-01",
+          "anthropic-dangerous-direct-browser-access": "true",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ model, max_tokens: 3000,
+          messages: [{ role: "user", content: prompt }] }),
+      });
+      if (!r.ok) throw new Error(`Anthropic API ${r.status}: ${(await r.text()).slice(0,200)}`);
+      const j = await r.json();
+      return (j.content || []).filter(b => b.type === "text").map(b => b.text).join("");
+    }
+    const r = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${key}`, "content-type": "application/json" },
+      body: JSON.stringify({ model, max_tokens: 3000,
+        messages: [{ role: "user", content: prompt }] }),
+    });
+    if (!r.ok) throw new Error(`OpenAI API ${r.status}: ${(await r.text()).slice(0,200)}`);
+    return (await r.json()).choices[0].message.content;
+  },
+  parseJson(text) {
+    const clean = text.replace(/```json|```/g, "").trim();
+    const start = clean.indexOf("{"), end = clean.lastIndexOf("}");
+    if (start === -1 || end === -1) throw new Error("Model did not return JSON.");
+    return JSON.parse(clean.slice(start, end + 1));
+  }
+};
+
+/* ---------- Format: client-side SOAP / DAP / Narrative rendering ---------- */
+const Format = {
+  tabs: ["SOAP Format", "DAP Format", "Narrative Log"],
+
+  summaryText(d, tab) {
+    const s = d.summary;
+    if (tab === 0) return `S: ${s.subjective}\n\nO: ${s.objective}\n\nA: ${s.assessment}\n\nP: ${s.plan}`;
+    if (tab === 1) return `D: ${s.subjective} ${s.objective}\n\nA: ${s.assessment}\n\nP: ${s.plan}`;
+    return s.narrative;
+  },
+
+  memberText(m, tab) {
+    const defenses = (m.defenseMechanisms || []).join(", ") || "none prominent";
+    if (tab === 0) return `S: ${m.verbal}\nO: ${m.participationStyle}. ${m.nonverbal} ${m.peerInteraction}\nA: Presents in ${m.stageOfChange}; defense mechanisms observed: ${defenses}.\nP: ${m.plan}`;
+    if (tab === 1) return `D: ${m.verbal} ${m.participationStyle}. ${m.nonverbal} ${m.peerInteraction}\nA: Presents in ${m.stageOfChange}; defense mechanisms observed: ${defenses}.\nP: ${m.plan}`;
+    return `${m.name} presented in ${m.stageOfChange}. ${m.participationStyle}. ${m.verbal} ${m.nonverbal} ${m.peerInteraction} Defense mechanisms observed: ${defenses}. Plan: ${m.plan}`;
+  },
+
+  fullDocument(d, tab) {
+    const head = `GROUP MODALITY: ${d._modality} (fictional training scenario)\nSESSION TOPIC: ${d.sessionTopic}\nGROUP PHASE: ${d.groupPhase}\nPARTICIPANTS: ${d.members.length} (all fictional)\n\nFACILITATOR'S OVERALL SUMMARY — ${this.tabs[tab]}\n\nClimate: ${d.climate}\nInterventions: ${(d.interventions||[]).join("; ")}\nCollective themes: ${(d.collectiveThemes||[]).join(", ")}\n\n${this.summaryText(d, tab)}`;
+    const members = d.members.map(m => `--- ${m.name} ---\n${this.memberText(m, tab)}`).join("\n\n");
+    return `${WATERMARK_TOP}\n\n${head}\n\nINDIVIDUAL OBSERVATIONAL SNIPPETS (fictional participants)\n\n${members}\n\n${WATERMARK_BOTTOM}`;
+  }
+};
+
+/* ---------- App: UI wiring ---------- */
+const App = (() => {
+  let data = null;
+  let tab = 0;
+  const $ = id => document.getElementById(id);
+
+  const STAGE_COLORS = {
+    Precontemplation: "bg-red-50 text-red-700",
+    Contemplation: "bg-amber-50 text-amber-700",
+    Preparation: "bg-sky-50 text-sky-700",
+    Action: "bg-accent-50 text-accent-700",
+    Maintenance: "bg-indigo-50 text-indigo-700",
+  };
+
+  function show(state) {
+    ["emptyState","loadingState","errorState","results"].forEach(s =>
+      $(s).classList.toggle("hidden", s !== state));
+  }
+
+  function esc(t){ const d=document.createElement("div"); d.textContent=t ?? ""; return d.innerHTML; }
+
+  function renderTabs() {
+    $("tabs").innerHTML = Format.tabs.map((t,i) =>
+      `<button role="tab" aria-selected="${i===tab}" onclick="App.setTab(${i})"
+        class="px-3.5 py-1.5 text-xs font-medium rounded-md transition-colors ${i===tab ? "bg-accent-600 text-white shadow-sm" : "text-zinc-600 hover:bg-zinc-100"}">${t}</button>`).join("");
+  }
+
+  function renderResults() {
+    if (!data) return;
+    $("phaseBadge").textContent = data.groupPhase || "";
+    $("summaryBody").textContent =
+      `Climate: ${data.climate}\n\nInterventions: ${(data.interventions||[]).join("; ")}\nCollective themes: ${(data.collectiveThemes||[]).join(", ")}\n\n${Format.summaryText(data, tab)}`;
+    $("memberCards").innerHTML = data.members.map(m => `
+      <article class="rounded-xl border border-zinc-200 bg-white shadow-sm p-5 fade-in">
+        <header class="flex items-center justify-between mb-2">
+          <h3 class="text-sm font-semibold">${esc(m.name)}</h3>
+          <span class="text-[11px] font-medium rounded-full px-2.5 py-1 ${STAGE_COLORS[m.stageOfChange] || "bg-zinc-100 text-zinc-600"}">${esc(m.stageOfChange)}</span>
+        </header>
+        <div class="flex flex-wrap gap-1.5 mb-3">
+          ${(m.defenseMechanisms||[]).map(dm => `<span class="text-[10.5px] bg-zinc-100 text-zinc-600 rounded-full px-2 py-0.5">${esc(dm)}</span>`).join("")}
+        </div>
+        <p class="text-[12.5px] leading-relaxed text-zinc-700 whitespace-pre-wrap">${esc(Format.memberText(m, tab))}</p>
+      </article>`).join("");
+    renderTabs();
+    show("results");
+  }
+
+  function readConfig() {
+    const sliders = {};
+    SLIDER_DEFS.forEach(s => sliders[s.id] = +$("sl_"+s.id).value);
+    return {
+      modality: $("modality").value,
+      sliders,
+      count: +$("count").value,
+      themes: [...document.querySelectorAll("#themes input:checked")].map(c => c.value),
+    };
+  }
+
+  async function generate() {
+    const key = $("apiKey").value.trim() || Store.get("ss_key") || "";
+    const provider = $("provider").value;
+    const model = $("model").value.trim() || Api.defaults[provider];
+    if (!key) {
+      $("emptyMsg").textContent = "An API key is required. Open API Configuration in the sidebar, paste your key, and try again.";
+      $("apiDetails").open = true; show("emptyState"); return;
+    }
+    const cfg = readConfig();
+    cfg.names = Names.generate(cfg.count);
+    show("loadingState");
+    $("generateBtn").disabled = true;
+    try {
+      const raw = await Api.call(provider, key, model, Prompt.build(cfg));
+      const parsed = Api.parseJson(raw);
+      if (!Array.isArray(parsed.members) || !parsed.members.length) throw new Error("Response missing members array.");
+      parsed._modality = cfg.modality;
+      // Enforce placeholder names client-side even if the model drifted
+      parsed.members.forEach((m, i) => { m.name = cfg.names[i] || `Participant ${i+1}`; });
+      parsed.members = parsed.members.slice(0, cfg.names.length);
+      data = parsed;
+      renderResults();
+    } catch (e) {
+      $("errorMsg").textContent = e.message + " — check your key, model name, and network connection, then try again.";
+      show("errorState");
+    } finally {
+      $("generateBtn").disabled = false;
+    }
+  }
+
+  function copy(btn) {
+    if (!data) return;
+    navigator.clipboard.writeText(Format.fullDocument(data, tab)).then(() => {
+      const old = btn.textContent; btn.textContent = "Copied ✓";
+      setTimeout(() => btn.textContent = old, 1500);
+    });
+  }
+
+  function download() {
+    if (!data) return;
+    const blob = new Blob([Format.fullDocument(data, tab)], { type: "text/plain" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "sobersight_training_simulation.txt";
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
+  function saveKey() {
+    const k = $("apiKey").value.trim();
+    if (!k) return;
+    Store.set("ss_key", k);
+    Store.set("ss_provider", $("provider").value);
+    Store.set("ss_model", $("model").value.trim());
+    updateDot();
+  }
+  function clearKey() {
+    Store.del("ss_key"); $("apiKey").value = ""; updateDot();
+  }
+  function updateDot() {
+    const has = !!(Store.get("ss_key") || $("apiKey").value.trim());
+    $("apiDot").className = "w-2 h-2 rounded-full " + (has ? "bg-accent-600" : "bg-zinc-300");
+  }
+
+  function init() {
+    // sliders
+    $("sliders").innerHTML = SLIDER_DEFS.map(s => `
+      <div>
+        <div class="flex justify-between items-baseline mb-1">
+          <label class="text-xs text-zinc-600" for="sl_${s.id}">${s.label}</label>
+          <span id="slv_${s.id}" class="text-[11px] font-medium text-zinc-400">30</span>
+        </div>
+        <input id="sl_${s.id}" type="range" min="0" max="100" value="30" class="w-full"
+          oninput="document.getElementById('slv_${s.id}').textContent=this.value">
+      </div>`).join("");
+    // theme chips
+    $("themes").innerHTML = THEME_DEFS.map((t,i) => `
+      <label class="cursor-pointer">
+        <input type="checkbox" value="${t}" class="peer sr-only">
+        <span class="inline-block text-[11.5px] rounded-full border border-zinc-300 px-2.5 py-1 text-zinc-600 peer-checked:bg-accent-600 peer-checked:border-accent-600 peer-checked:text-white transition-colors select-none">${t}</span>
+      </label>`).join("");
+    // restore saved config
+    const savedKey = Store.get("ss_key");
+    if (savedKey) $("apiKey").value = savedKey;
+    const savedProv = Store.get("ss_provider");
+    if (savedProv) $("provider").value = savedProv;
+    $("model").value = Store.get("ss_model") || Api.defaults[$("provider").value];
+    $("provider").addEventListener("change", () =>
+      $("model").value = Api.defaults[$("provider").value]);
+    if (!Store.persistent())
+      $("storageNote").textContent = "Note: persistent storage is unavailable in this preview environment — your key is held in memory for this session only. Open the file locally for it to be remembered.";
+    updateDot();
+    renderTabs();
+  }
+
+  return {
+    generate, copy, download, saveKey, clearKey,
+    setTab(i){ tab = i; renderResults(); },
+    init,
+  };
+})();
+
+App.init();
+</script>
+</body>
+</html>
