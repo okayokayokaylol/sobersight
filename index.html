@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SoberSight — Synthetic Case Study Simulator</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script>
+  tailwind.config = {
+    theme: { extend: { fontFamily: { sans: ['Inter','system-ui','sans-serif'] },
+      colors: { accent: {50:'#ecfdf5',100:'#d1fae5',600:'#059669',700:'#047857'} } } }
+  };
+</script>
+<style>
+  html{font-family:Inter,system-ui,sans-serif}
+  .fade-in{animation:fade .25s ease-out}
+  @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+  .spin{animation:rot 1s linear infinite}
+  @keyframes rot{to{transform:rotate(360deg)}}
+  input[type=range]{-webkit-appearance:none;height:4px;border-radius:9999px;background:#e4e4e7}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:9999px;background:#059669;cursor:pointer;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.25)}
+  input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:9999px;background:#059669;cursor:pointer;border:2px solid #fff}
+  @media (prefers-reduced-motion:reduce){.fade-in,.spin{animation:none}}
+</style>
+</head>
+<body class="bg-zinc-50 text-zinc-900 antialiased">
+
+<div class="min-h-screen flex flex-col lg:flex-row">
+
+  <!-- ============ CONFIGURATION SIDEBAR ============ -->
+  <aside class="w-full lg:w-[340px] lg:min-h-screen bg-white border-b lg:border-b-0 lg:border-r border-zinc-200 p-6 flex-shrink-0">
+    <header class="mb-6">
+      <div class="flex items-center gap-2.5">
+        <div class="w-8 h-8 rounded-lg bg-accent-600 flex items-center justify-center text-white font-bold text-sm select-none">S</div>
+        <div>
+          <h1 class="text-lg font-semibold tracking-tight leading-none">SoberSight</h1>
+          <p class="text-[11px] text-zinc-500 mt-0.5">Synthetic Case Study Simulator</p>
+        </div>
+      </div>
+    </header>
+
+    <!-- API configuration -->
+    <details class="group mb-6 rounded-xl border border-zinc-200 bg-zinc-50/60 open:bg-white" id="apiDetails">
+      <summary class="flex items-center justify-between px-4 py-3 cursor-pointer select-none text-sm font-medium">
+        <span class="flex items-center gap-2">
+          <span id="apiDot" class="w-2 h-2 rounded-full bg-zinc-300"></span> API Configuration
+        </span>
+        <svg class="w-4 h-4 text-zinc-400 group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+      </summary>
+      <div class="px-4 pb-4 space-y-3">
+        <div>
+          <label class="block text-xs font-medium text-zinc-600 mb-1" for="provider">Provider</label>
+          <select id="provider" class="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent-600/30 focus:border-accent-600">
+            <option value="anthropic">Anthropic</option>
+            <option value="openai">OpenAI</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-zinc-600 mb-1" for="apiKey">API key</label>
+          <input id="apiKey" type="password" placeholder="sk-..." autocomplete="off"
+            class="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent-600/30 focus:border-accent-600">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-zinc-600 mb-1" for="model">Model</label>
+          <input id="model" type="text" class="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent-600/30 focus:border-accent-600">
+        </div>
+        <div class="flex gap-2">
+          <button onclick="App.saveKey()" class="flex-1 rounded-lg bg-zinc-900 text-white text-xs font-medium py-2 hover:bg-zinc-700 transition-colors">Save key</button>
+          <button onclick="App.clearKey()" class="rounded-lg border border-zinc-300 text-xs font-medium px-3 py-2 hover:bg-zinc-100 transition-colors">Clear</button>
+        </div>
+        <p id="storageNote" class="text-[11px] text-zinc-500 leading-snug">Optional — without a key, SoberSight uses its built-in offline engine. A key is stored only in this specific browser (localStorage) and sent only to the provider you select. Keys do not transfer between devices or between the local file and the hosted site.</p>
+      </div>
+    </details>
+
+    <!-- Scenario parameters -->
+    <div class="space-y-5">
+      <div>
+        <label class="block text-xs font-semibold uppercase tracking-wide text-zinc-500 mb-1.5" for="modality">Group modality</label>
+        <select id="modality" class="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-accent-600/30 focus:border-accent-600">
+          <option>Relapse Prevention Skills</option>
+          <option>CBT for Cravings</option>
+          <option>Psychoeducation on Triggers</option>
+          <option>Stages of Change Seminar</option>
+          <option>Sober Support &amp; Community Building</option>
+        </select>
+      </div>
+
+      <div>
+        <p class="text-xs font-semibold uppercase tracking-wide text-zinc-500 mb-2">Dynamics &amp; resistance</p>
+        <div class="space-y-3.5" id="sliders"></div>
+      </div>
+
+      <div>
+        <label class="block text-xs font-semibold uppercase tracking-wide text-zinc-500 mb-1.5">Participants
+          <span id="countVal" class="ml-1 text-accent-700 font-bold">6</span></label>
+        <input id="count" type="range" min="4" max="8" value="6" class="w-full"
+          oninput="document.getElementById('countVal').textContent=this.value">
+        <div class="flex justify-between text-[10px] text-zinc-400 mt-1"><span>4</span><span>8</span></div>
+      </div>
+
+      <div>
+        <p class="text-xs font-semibold uppercase tracking-wide text-zinc-500 mb-2">Clinical themes</p>
+        <div id="themes" class="flex flex-wrap gap-1.5"></div>
+      </div>
+
+      <button id="generateBtn" onclick="App.generate()"
+        class="w-full rounded-xl bg-accent-600 hover:bg-accent-700 text-white font-semibold text-sm py-3 transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-accent-600/40 disabled:opacity-50 disabled:cursor-not-allowed">
+        Generate Simulation
+      </button>
+      <p class="text-[11px] text-zinc-400 leading-snug">All output is computer-generated fiction for clinician training. Never enter real client information.</p>
+    </div>
+  </aside>
+
+  <!-- ============ OUTPUT PANEL ============ -->
+  <main class="flex-1 p-5 lg:p-8 max-w-5xl">
+
+    <!-- Permanent training banner (matches watermark baked into all text output) -->
+    <div class="mb-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-[12px] text-amber-800 flex items-center gap-2">
+      <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126z"/></svg>
+      <span><strong>Fictional training simulation.</strong> Not a clinical record — every export carries a permanent training watermark.</span>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
+      <nav id="tabs" class="inline-flex rounded-lg border border-zinc-200 bg-white p-1 shadow-sm" role="tablist"></nav>
+      <div class="flex items-center gap-2">
+        <button onclick="App.generate()" title="Regenerate with same parameters"
+          class="rounded-lg border border-zinc-300 bg-white p-2 hover:bg-zinc-100 transition-colors" aria-label="Regenerate">
+          <svg class="w-4 h-4 text-zinc-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"/></svg>
+        </button>
+        <button id="copyBtn" onclick="App.copy(this)"
+          class="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-xs font-medium hover:bg-zinc-100 transition-colors">Copy to Clipboard</button>
+        <button onclick="App.download()" title="Download text file"
+          class="rounded-lg border border-zinc-300 bg-white p-2 hover:bg-zinc-100 transition-colors" aria-label="Download text file">
+          <svg class="w-4 h-4 text-zinc-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- States -->
+    <div id="emptyState" class="rounded-2xl border border-dashed border-zinc-300 bg-white p-12 text-center">
+      <div class="w-12 h-12 mx-auto rounded-xl bg-accent-50 flex items-center justify-center mb-4">
+        <svg class="w-6 h-6 text-accent-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+      </div>
+      <h2 class="text-sm font-semibold mb-1">No simulation yet</h2>
+      <p id="emptyMsg" class="text-xs text-zinc-500 max-w-sm mx-auto leading-relaxed">Configure a scenario in the sidebar and select Generate Simulation. Works instantly with the built-in offline engine — add an API key for richer, LLM-written output.</p>
+    </div>
+
+    <div id="loadingState" class="hidden rounded-2xl border border-zinc-200 bg-white p-12 text-center">
+      <svg class="w-7 h-7 mx-auto text-accent-600 spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-20" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3"/><path d="M12 2a10 10 0 019.54 7" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>
+      <p class="text-xs text-zinc-500 mt-3">Generating fictional simulation…</p>
+    </div>
+
+    <div id="errorState" class="hidden rounded-2xl border border-red-200 bg-red-50 p-6">
+      <h2 class="text-sm font-semibold text-red-800 mb-1">Generation failed</h2>
+      <p id="errorMsg" class="text-xs text-red-700 leading-relaxed"></p>
+    </div>
+
+    <!-- Results -->
+    <div id="results" class="hidden fade-in space-y-6">
+      <section class="rounded-2xl border border-zinc-200 bg-white shadow-sm">
+        <header class="px-6 pt-5 pb-3 border-b border-zinc-100 flex items-center justify-between">
+          <h2 class="text-sm font-semibold">Facilitator's Overall Summary</h2>
+          <span class="flex items-center gap-1.5 flex-wrap justify-end">
+            <span id="engineBadge" class="text-[10.5px] text-zinc-500 bg-zinc-100 rounded-full px-2.5 py-1"></span>
+            <span id="phaseBadge" class="text-[11px] font-medium text-accent-700 bg-accent-50 rounded-full px-2.5 py-1"></span>
+          </span>
+        </header>
+        <div id="summaryBody" class="px-6 py-5 text-[13.5px] leading-relaxed text-zinc-700 whitespace-pre-wrap"></div>
+      </section>
+
+      <section>
+        <h2 class="text-sm font-semibold mb-3">Individual Observational Snippets <span class="text-zinc-400 font-normal">(fictional participants)</span></h2>
+        <div id="memberCards" class="grid gap-4 md:grid-cols-2"></div>
+      </section>
+    </div>
+  </main>
+</div>
+
+<script>
+"use strict";
+
+/* =====================================================================
+   SoberSight — modular vanilla JS
+   Modules: Store (key persistence), Names, Prompt, Api, Format, App (UI)
+   Hardcoded safety properties (do not remove):
+     - WATERMARK applied to every rendered/copied/downloaded output
+     - fictional placeholder names generated client-side and enforced
+       in the prompt; model is instructed to invent no other identities
+   ===================================================================== */
+
+const WATERMARK_TOP =
+  "========================================================================\n" +
+  "  FICTIONAL TRAINING SIMULATION — NOT A CLINICAL RECORD\n" +
+  "  All persons, statements, and events are computer-generated fiction\n" +
+  "  produced by SoberSight for clinician education.\n" +
+  "  Not valid for any chart, claim, or record of service.\n" +
+  "========================================================================";
+const WATERMARK_BOTTOM =
+  "------------------------------------------------------------------------\n" +
+  "  END OF FICTIONAL TRAINING SIMULATION — generated sample, not a record\n" +
+  "------------------------------------------------------------------------";
+
+/* ---------- Store: localStorage with in-memory fallback ----------
+   (Sandboxed previews, e.g. inside Claude.ai, block localStorage;
+   opened locally as a file it persists normally.) */
+const Store = (() => {
+  let mem = {};
+  let persistent = true;
+  try { localStorage.setItem("__t","1"); localStorage.removeItem("__t"); }
+  catch { persistent = false; }
+  return {
+    get: k => persistent ? localStorage.getItem(k) : (mem[k] ?? null),
+    set: (k,v) => { persistent ? localStorage.setItem(k,v) : (mem[k]=v); },
+    del: k => { persistent ? localStorage.removeItem(k) : delete mem[k]; },
+    persistent: () => persistent,
+  };
+})();
+
+/* ---------- Names: fictional placeholder identities ---------- */
+const Names = (() => {
+  const FIRST = ["Avery","Jordan","Riley","Casey","Morgan","Quinn","Reese","Dakota",
+    "Rowan","Skyler","Finley","Hayden","Kendall","Marley","Parker","Sage","Tatum",
+    "Blake","Devon","Ellis","Harper","Kai","Micah","Wren"];
+  const INITIALS = "BCDFGHKLMNPRSTW";
+  return {
+    generate(n) {
+      const pool = [...FIRST].sort(() => Math.random() - .5).slice(0, n);
+      return pool.map(f => `${f} ${INITIALS[Math.floor(Math.random()*INITIALS.length)]}.`);
+    }
+  };
+})();
+
+/* ---------- Prompt builder ---------- */
+const SLIDER_DEFS = [
+  { id:"denial",    label:"High Denial / Minimization" },
+  { id:"crosstalk", label:"Active Cross-Talking" },
+  { id:"guarded",   label:"Overly Quiet / Guarded" },
+  { id:"dominant",  label:"Dominant Speaker" },
+];
+const THEME_DEFS = ["Identifying High-Risk Situations","Managing Cravings",
+  "Post-Acute Withdrawal (PAWS)","Building a Sober Support Network",
+  "Boundaries in Early Recovery","Shame & Self-Forgiveness",
+  "Structuring Unstructured Time","Family Repair & Trust"];
+
+const Prompt = {
+  levelWord(v) { return v < 25 ? "minimal" : v < 50 ? "mild" : v < 75 ? "moderate" : "pronounced"; },
+  build(cfg) {
+    const dyn = SLIDER_DEFS.map(s => `- ${s.label}: ${this.levelWord(cfg.sliders[s.id])} (${cfg.sliders[s.id]}/100)`).join("\n");
+    return `You are generating an ENTIRELY FICTIONAL substance use treatment group simulation for clinician training. Every participant is invented. Use ONLY the placeholder names provided below. Do not invent surnames, real facilities, dates of birth, or any identifying details. This is an educational simulator; write realistic, professional clinical observations from the facilitator's perspective.
+
+SCENARIO PARAMETERS
+Group modality: ${cfg.modality}
+Participants (fictional placeholder names, use exactly these): ${cfg.names.join(", ")}
+Clinical themes to weave in: ${cfg.themes.length ? cfg.themes.join("; ") : "facilitator's choice"}
+Group dynamics to depict:
+${dyn}
+
+Reflect the dynamics faithfully: high values should visibly shape participation patterns, facilitator interventions (redirection, reflection, limit-setting), and climate.
+
+Respond with ONLY a valid JSON object, no markdown fences, matching exactly this schema:
+{
+  "sessionTopic": "one-line session topic",
+  "groupPhase": "e.g., Working stage",
+  "climate": "2-3 sentence objective description of group climate reflecting the dynamics",
+  "interventions": ["facilitator intervention 1","intervention 2"],
+  "collectiveThemes": ["theme","theme"],
+  "summary": {
+    "subjective": "collective member-reported content, 2-3 sentences",
+    "objective": "observed group behavior, 2-3 sentences",
+    "assessment": "clinical assessment of group process, 2-3 sentences",
+    "plan": "facilitator plan for next session, 1-2 sentences",
+    "narrative": "a flowing 5-7 sentence chronological narrative log of the session"
+  },
+  "members": [
+    {
+      "name": "exact placeholder name",
+      "stageOfChange": "Precontemplation|Contemplation|Preparation|Action|Maintenance",
+      "participationStyle": "one-line description",
+      "defenseMechanisms": ["e.g., rationalization"],
+      "verbal": "what this member reported/said, 1-2 sentences, facilitator's paraphrase",
+      "nonverbal": "observed non-verbal cues, 1 sentence",
+      "peerInteraction": "interaction with peers, 1 sentence",
+      "plan": "individual follow-up plan, 1 sentence"
+    }
+  ]
+}
+Include exactly ${cfg.names.length} member objects, one per provided name. Vary stages of change and defense mechanisms plausibly across members.`;
+  }
+};
+
+/* ---------- Api: provider calls ---------- */
+const Api = {
+  defaults: { anthropic: "claude-sonnet-4-6", openai: "gpt-4o-mini" },
+  async call(provider, key, model, prompt) {
+    if (provider === "anthropic") {
+      const r = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "x-api-key": key,
+          "anthropic-version": "2023-06-01",
+          "anthropic-dangerous-direct-browser-access": "true",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ model, max_tokens: 3000,
+          messages: [{ role: "user", content: prompt }] }),
+      });
+      if (!r.ok) throw new Error(`Anthropic API ${r.status}: ${(await r.text()).slice(0,200)}`);
+      const j = await r.json();
+      return (j.content || []).filter(b => b.type === "text").map(b => b.text).join("");
+    }
+    const r = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${key}`, "content-type": "application/json" },
+      body: JSON.stringify({ model, max_tokens: 3000,
+        messages: [{ role: "user", content: prompt }] }),
+    });
+    if (!r.ok) throw new Error(`OpenAI API ${r.status}: ${(await r.text()).slice(0,200)}`);
+    return (await r.json()).choices[0].message.content;
+  },
+  parseJson(text) {
+    const clean = text.replace(/```json|```/g, "").trim();
+    const start = clean.indexOf("{"), end = clean.lastIndexOf("}");
+    if (start === -1 || end === -1) throw new Error("Model did not return JSON.");
+    return JSON.parse(clean.slice(start, end + 1));
+  }
+};
+
+/* ---------- Format: client-side SOAP / DAP / Narrative rendering ---------- */
+const Format = {
+  tabs: ["SOAP Format", "DAP Format", "Narrative Log"],
+
+  summaryText(d, tab) {
+    const s = d.summary;
+    if (tab === 0) return `S: ${s.subjective}\n\nO: ${s.objective}\n\nA: ${s.assessment}\n\nP: ${s.plan}`;
+    if (tab === 1) return `D: ${s.subjective} ${s.objective}\n\nA: ${s.assessment}\n\nP: ${s.plan}`;
+    return s.narrative;
+  },
+
+  memberText(m, tab) {
+    const defenses = (m.defenseMechanisms || []).join(", ") || "none prominent";
+    if (tab === 0) return `S: ${m.verbal}\nO: ${m.participationStyle}. ${m.nonverbal} ${m.peerInteraction}\nA: Presents in ${m.stageOfChange}; defense mechanisms observed: ${defenses}.\nP: ${m.plan}`;
+    if (tab === 1) return `D: ${m.verbal} ${m.participationStyle}. ${m.nonverbal} ${m.peerInteraction}\nA: Presents in ${m.stageOfChange}; defense mechanisms observed: ${defenses}.\nP: ${m.plan}`;
+    return `${m.name} presented in ${m.stageOfChange}. ${m.participationStyle}. ${m.verbal} ${m.nonverbal} ${m.peerInteraction} Defense mechanisms observed: ${defenses}. Plan: ${m.plan}`;
+  },
+
+  fullDocument(d, tab) {
+    const head = `GROUP MODALITY: ${d._modality} (fictional training scenario)\nSESSION TOPIC: ${d.sessionTopic}\nGROUP PHASE: ${d.groupPhase}\nPARTICIPANTS: ${d.members.length} (all fictional)\nGENERATED BY: ${d._engine || "SoberSight"}\n\nFACILITATOR'S OVERALL SUMMARY — ${this.tabs[tab]}\n\nClimate: ${d.climate}\nInterventions: ${(d.interventions||[]).join("; ")}\nCollective themes: ${(d.collectiveThemes||[]).join(", ")}\n\n${this.summaryText(d, tab)}`;
+    const members = d.members.map(m => `--- ${m.name} ---\n${this.memberText(m, tab)}`).join("\n\n");
+    return `${WATERMARK_TOP}\n\n${head}\n\nINDIVIDUAL OBSERVATIONAL SNIPPETS (fictional participants)\n\n${members}\n\n${WATERMARK_BOTTOM}`;
+  }
+};
+
+/* ---------- Offline: template engine (no API key required) ----------
+   Produces the exact same JSON schema as the LLM, so the entire
+   rendering / formatting / watermark pipeline is shared. */
+const Offline = (() => {
+  const pick = a => a[Math.floor(Math.random() * a.length)];
+
+  const M = {
+    "Relapse Prevention Skills": {
+      topics: ["mapping personal relapse warning signs and high-risk situations","the lapse vs. relapse distinction and the abstinence violation effect","building an individual high-risk situation inventory","planning for unstructured weekend time in early recovery"],
+      interventions: ["facilitated a relapse chain analysis using a hypothetical scenario","guided members through written trigger inventories with voluntary sharing","led a role-play of refusal skills in rotating pairs","mapped early warning signs volunteered by the group on the whiteboard"],
+      verbal: ["identified boredom and evening isolation as primary triggers","described running into a former using acquaintance this week and the craving that followed","reported using a delay strategy during a strong mid-week urge","minimized the significance of a recent close call, framing it as 'not a big deal'","questioned whether total abstinence is necessary in their case","described difficulty declining offers from a family member who still uses"],
+      plans: ["Member will complete a written trigger inventory before next session.","Member will identify two sober supports and program one contact into their phone.","Member will practice one refusal script in a low-stakes situation this week."]
+    },
+    "CBT for Cravings": {
+      topics: ["the thought–craving–behavior chain and points of interruption","urge surfing and the wave model of cravings","identifying permission-giving thoughts","behavioral alternatives during peak craving windows"],
+      interventions: ["led a five-minute guided urge-surfing practice with group debrief","facilitated a thought record on a member-volunteered craving episode","used Socratic questioning to examine a permission-giving thought aloud","had members chart their personal peak-craving times and plan alternatives"],
+      verbal: ["traced a weekend craving back to a specific permission-giving thought","reported that a craving peaked and passed, connecting it to the wave metaphor","expressed doubt that 'thinking differently' can affect a physical urge","described white-knuckling through an urge rather than using a skill","identified 'I deserve a reward' as a recurring permission-giving thought","reported successfully substituting a walk during a predictable evening craving"],
+      plans: ["Member will log cravings daily with intensity ratings and triggering thoughts.","Member will practice urge surfing once daily regardless of craving level.","Member will write out three counter-statements to their permission-giving thought."]
+    },
+    "Psychoeducation on Triggers": {
+      topics: ["internal versus external triggers and why the distinction matters","people, places, and things: environmental cue conditioning","emotional states as covert triggers (HALT)","cue exposure and why willpower alone fails"],
+      interventions: ["presented the trigger–cue–response model with a whiteboard diagram","facilitated a HALT check-in round and connected states to urge intensity","had members sort personal triggers into internal and external categories","used a group brainstorm to normalize conditioned responses to cues"],
+      verbal: ["identified a specific route home as a conditioned environmental cue","connected irritability at work to a same-day spike in urges","stated they 'don't really have triggers,' attributing past use to willpower lapses","categorized loneliness as their dominant internal trigger","described a payday-linked pattern they had not previously connected to use","asked clarifying questions about why cravings can appear 'out of nowhere'"],
+      plans: ["Member will complete a two-column internal/external trigger list.","Member will perform a HALT check twice daily and log the results.","Member will plan one route or routine change to reduce cue exposure."]
+    },
+    "Stages of Change Seminar": {
+      topics: ["the transtheoretical model and locating oneself honestly","ambivalence as a normal feature of contemplation","decisional balance: what use still provides versus what it costs","why relapse is framed as a stage event rather than a failure"],
+      interventions: ["presented the stages of change and invited voluntary self-placement","facilitated a decisional balance exercise in pairs","used motivational interviewing reflections to develop discrepancy","normalized ambivalence explicitly before the sharing round"],
+      verbal: ["self-placed in contemplation and named ambivalence about aftercare plans","stated they are 'only here because of the court' while remaining engaged in the exercise","identified stress relief as the main thing use still provides","described moving from preparation to action after a recent consequence","challenged the model, arguing people 'either quit or they don't'","reflected that previous treatment episodes were driven by others' motivation"],
+      plans: ["Member will complete a written decisional balance sheet for review.","Member will identify one value that conflicts with continued use.","Member will re-rate their stage self-placement at next session."]
+    },
+    "Sober Support & Community Building": {
+      topics: ["auditing the current social network for recovery risk and support","how to build sober connection when old networks centered on use","asking for help: barriers and scripts","the role of mutual-aid meetings and sponsorship"],
+      interventions: ["guided a social network mapping exercise with colored markers","facilitated a role-play of asking a support person for help","led a discussion on loneliness in early recovery, normalizing the loss of using networks","had members exchange one concrete strategy for meeting sober peers"],
+      verbal: ["mapped their network and realized most current contacts are use-associated","described attending a first outside meeting and mixed feelings about it","stated they 'do better alone' and expressed reluctance to rely on others","identified one family member as a genuine support and one as a risk","reported exchanging numbers with a sober peer after last week's session","voiced grief about friendships that cannot continue in recovery"],
+      plans: ["Member will attend one outside support meeting and report back.","Member will contact one identified sober support this week.","Member will draft a short script for asking for help and rehearse it."]
+    }
+  };
+
+  const PROFILES = {
+    dominant: { style: ["dominated verbal airtime, redirecting most topics to personal material","spoke at length repeatedly and required structured turn-taking cues"],
+      nonverbal: ["Sighed audibly when the facilitator redirected to another member.","Displayed expansive gestures and an elevated speech rate."],
+      peer: ["Gave frequent advice to peers, received with polite but flat responses.","Accepted the turn-taking limit for the remainder of session with visible effort."] },
+    guarded: { style: ["participated minimally, offering brief responses only when directly prompted","remained quiet through open discussion while visibly tracking the conversation"],
+      nonverbal: ["Sat with arms crossed and limited eye contact.","Posture was closed; fidgeted during emotionally heavier segments."],
+      peer: ["Did not initiate peer contact but nodded when a peer's comment paralleled their situation.","Accepted a supportive comment from a peer without elaborating."] },
+    crosstalk: { style: ["repeatedly initiated side conversations during peer shares, requiring redirection","interjected across the circle on several occasions, disrupting speaker flow"],
+      nonverbal: ["Oriented body toward a neighbor rather than the speaker for extended periods.","Laughed at side remarks during another member's disclosure."],
+      peer: ["Responded to the group-agreements reminder with brief compliance, then a further lapse.","Re-engaged appropriately after the facilitator restructured seating for the final segment."] },
+    engaged: { style: ["participated actively, volunteering examples and building on peers' comments","engaged consistently, both sharing personal material and reflecting peers' contributions"],
+      nonverbal: ["Maintained open posture and consistent eye contact with speakers.","Leaned forward during peer disclosures; affect was congruent."],
+      peer: ["Offered validating feedback to a peer without prompting.","Asked a clarifying question of another member that deepened the discussion."] },
+    moderate: { style: ["engaged selectively, contributing when the topic touched personal experience","participated at a moderate level with two to three on-topic contributions"],
+      nonverbal: ["Posture relaxed; attention consistent though affect reserved.","Made intermittent eye contact; looked down during heavier content."],
+      peer: ["Responded appropriately when addressed directly by a peer.","Kept contributions focused on their own experience with limited peer-directed comments."] },
+  };
+
+  const DEFENSES_DENIAL = ["minimization","denial","rationalization","blaming"];
+  const DEFENSES_GENERAL = ["intellectualization","deflection through humor","superficial compliance","projection","comparison ('at least I'm not…')"];
+  const STAGES = ["Precontemplation","Contemplation","Preparation","Action","Maintenance"];
+  const PHASES = ["Forming stage — members orienting to norms and testing safety","Norming stage — group agreements referenced by members themselves","Working stage — members initiating feedback exchange and deeper disclosure"];
+
+  function assignProfiles(cfg) {
+    const n = cfg.names.length, out = [];
+    if (cfg.sliders.dominant >= 55) out.push("dominant");
+    if (cfg.sliders.crosstalk >= 55) out.push("crosstalk");
+    if (cfg.sliders.crosstalk >= 80) out.push("crosstalk");
+    const guardedShare = cfg.sliders.guarded / 100;
+    while (out.length < n) {
+      out.push(Math.random() < guardedShare ? "guarded" : (Math.random() < .5 ? "engaged" : "moderate"));
+    }
+    return out.slice(0, n).sort(() => Math.random() - .5);
+  }
+
+  function assignStage(cfg) {
+    // High denial shifts probability mass toward earlier stages
+    const d = cfg.sliders.denial / 100;
+    const w = [0.1 + 0.5*d, 0.3, 0.2, 0.25*(1-d) + 0.1, 0.15*(1-d) + 0.05];
+    let r = Math.random() * w.reduce((a,b)=>a+b,0);
+    for (let i = 0; i < w.length; i++) { r -= w[i]; if (r <= 0) return STAGES[i]; }
+    return "Contemplation";
+  }
+
+  function assignDefenses(cfg, stage) {
+    const set = [];
+    const denialProb = cfg.sliders.denial / 100;
+    if (Math.random() < Math.max(denialProb, stage === "Precontemplation" ? .8 : .2))
+      set.push(pick(DEFENSES_DENIAL));
+    if (Math.random() < .6) {
+      const g = pick(DEFENSES_GENERAL);
+      if (!set.includes(g)) set.push(g);
+    }
+    return set.length ? set : ["none prominent this session"];
+  }
+
+  function climate(cfg) {
+    const parts = [];
+    const s = cfg.sliders;
+    parts.push(s.guarded >= 55
+      ? "Group energy was subdued; long silences followed open-ended prompts and the facilitator shifted to more structured, direct questioning."
+      : "The group climate was generally workable, with a natural mix of participation depths.");
+    if (s.denial >= 55) parts.push("Minimization surfaced repeatedly across members' accounts and was named as a group-level pattern.");
+    if (s.crosstalk >= 55) parts.push("Side conversations required multiple redirections and a review of group agreements.");
+    if (s.dominant >= 55) parts.push("One member's extended airtime pulled focus until structured turn-taking was imposed.");
+    return parts.join(" ");
+  }
+
+  function generate(cfg) {
+    const bank = M[cfg.modality] || M["Relapse Prevention Skills"];
+    const topic = pick(bank.topics);
+    const interventions = [...bank.interventions].sort(() => Math.random() - .5).slice(0, 2);
+    const profiles = assignProfiles(cfg);
+    const themes = cfg.themes.length ? cfg.themes : ["recovery skill-building"];
+
+    const members = cfg.names.map((name, i) => {
+      const p = PROFILES[profiles[i]];
+      const stage = assignStage(cfg);
+      const themeTag = (i < themes.length) ? ` Content connected to the theme of ${themes[i].toLowerCase()}.` : "";
+      return {
+        name,
+        stageOfChange: stage,
+        participationStyle: pick(p.style),
+        defenseMechanisms: assignDefenses(cfg, stage),
+        verbal: "Member " + pick(bank.verbal) + "." + themeTag,
+        nonverbal: pick(p.nonverbal),
+        peerInteraction: pick(p.peer),
+        plan: pick(bank.plans),
+      };
+    });
+
+    const cl = climate(cfg);
+    const stagesSeen = [...new Set(members.map(m => m.stageOfChange))].join(", ");
+    return {
+      sessionTopic: topic.charAt(0).toUpperCase() + topic.slice(1),
+      groupPhase: pick(PHASES),
+      climate: cl,
+      interventions,
+      collectiveThemes: themes,
+      summary: {
+        subjective: `Members' reported content centered on ${topic}. Themes voiced across the group included ${themes.join(", ").toLowerCase()}.`,
+        objective: cl + ` Stages of change represented across members: ${stagesSeen}.`,
+        assessment: `Group process is consistent with the identified phase; the configured dynamics visibly shaped participation patterns and drove facilitator technique selection.`,
+        plan: `Continue the current curriculum; follow up individually where indicated in the observations below.`,
+        narrative: `The session opened with a check-in round before turning to ${topic}. ${cl} The facilitator ${interventions[0]}, and later ${interventions[1]}. Themes of ${themes.join(", ").toLowerCase()} surfaced across members' contributions. The session closed on time with a one-word check-out from each member.`,
+      },
+      members,
+    };
+  }
+
+  return { generate };
+})();
+
+/* ---------- App: UI wiring ---------- */
+const App = (() => {
+  let data = null;
+  let tab = 0;
+  const $ = id => document.getElementById(id);
+
+  const STAGE_COLORS = {
+    Precontemplation: "bg-red-50 text-red-700",
+    Contemplation: "bg-amber-50 text-amber-700",
+    Preparation: "bg-sky-50 text-sky-700",
+    Action: "bg-accent-50 text-accent-700",
+    Maintenance: "bg-indigo-50 text-indigo-700",
+  };
+
+  function show(state) {
+    ["emptyState","loadingState","errorState","results"].forEach(s =>
+      $(s).classList.toggle("hidden", s !== state));
+  }
+
+  function esc(t){ const d=document.createElement("div"); d.textContent=t ?? ""; return d.innerHTML; }
+
+  function renderTabs() {
+    $("tabs").innerHTML = Format.tabs.map((t,i) =>
+      `<button role="tab" aria-selected="${i===tab}" onclick="App.setTab(${i})"
+        class="px-3.5 py-1.5 text-xs font-medium rounded-md transition-colors ${i===tab ? "bg-accent-600 text-white shadow-sm" : "text-zinc-600 hover:bg-zinc-100"}">${t}</button>`).join("");
+  }
+
+  function renderResults() {
+    if (!data) return;
+    $("phaseBadge").textContent = data.groupPhase || "";
+    $("engineBadge").textContent = data._engine || "";
+    $("summaryBody").textContent =
+      `Climate: ${data.climate}\n\nInterventions: ${(data.interventions||[]).join("; ")}\nCollective themes: ${(data.collectiveThemes||[]).join(", ")}\n\n${Format.summaryText(data, tab)}`;
+    $("memberCards").innerHTML = data.members.map(m => `
+      <article class="rounded-xl border border-zinc-200 bg-white shadow-sm p-5 fade-in">
+        <header class="flex items-center justify-between mb-2">
+          <h3 class="text-sm font-semibold">${esc(m.name)}</h3>
+          <span class="text-[11px] font-medium rounded-full px-2.5 py-1 ${STAGE_COLORS[m.stageOfChange] || "bg-zinc-100 text-zinc-600"}">${esc(m.stageOfChange)}</span>
+        </header>
+        <div class="flex flex-wrap gap-1.5 mb-3">
+          ${(m.defenseMechanisms||[]).map(dm => `<span class="text-[10.5px] bg-zinc-100 text-zinc-600 rounded-full px-2 py-0.5">${esc(dm)}</span>`).join("")}
+        </div>
+        <p class="text-[12.5px] leading-relaxed text-zinc-700 whitespace-pre-wrap">${esc(Format.memberText(m, tab))}</p>
+      </article>`).join("");
+    renderTabs();
+    show("results");
+  }
+
+  function readConfig() {
+    const sliders = {};
+    SLIDER_DEFS.forEach(s => sliders[s.id] = +$("sl_"+s.id).value);
+    return {
+      modality: $("modality").value,
+      sliders,
+      count: +$("count").value,
+      themes: [...document.querySelectorAll("#themes input:checked")].map(c => c.value),
+    };
+  }
+
+  async function generate() {
+    const key = $("apiKey").value.trim() || Store.get("ss_key") || "";
+    const provider = $("provider").value;
+    const model = $("model").value.trim() || Api.defaults[provider];
+    const cfg = readConfig();
+    cfg.names = Names.generate(cfg.count);
+    show("loadingState");
+    $("generateBtn").disabled = true;
+    try {
+      let parsed;
+      if (key) {
+        try {
+          const raw = await Api.call(provider, key, model, Prompt.build(cfg));
+          parsed = Api.parseJson(raw);
+          if (!Array.isArray(parsed.members) || !parsed.members.length) throw new Error("Response missing members array.");
+          parsed._engine = `LLM (${provider})`;
+        } catch (llmErr) {
+          // Transparent fallback: still deliver a result, but say what happened
+          parsed = Offline.generate(cfg);
+          parsed._engine = `Offline templates — LLM call failed (${String(llmErr.message).slice(0, 120)})`;
+        }
+      } else {
+        parsed = Offline.generate(cfg);
+        parsed._engine = "Offline templates (no API key configured)";
+      }
+      parsed._modality = cfg.modality;
+      // Enforce placeholder names client-side even if the model drifted
+      parsed.members.forEach((m, i) => { m.name = cfg.names[i] || `Participant ${i+1}`; });
+      parsed.members = parsed.members.slice(0, cfg.names.length);
+      data = parsed;
+      renderResults();
+    } catch (e) {
+      $("errorMsg").textContent = e.message + " — please try again.";
+      show("errorState");
+    } finally {
+      $("generateBtn").disabled = false;
+    }
+  }
+
+  function copy(btn) {
+    if (!data) return;
+    navigator.clipboard.writeText(Format.fullDocument(data, tab)).then(() => {
+      const old = btn.textContent; btn.textContent = "Copied ✓";
+      setTimeout(() => btn.textContent = old, 1500);
+    });
+  }
+
+  function download() {
+    if (!data) return;
+    const blob = new Blob([Format.fullDocument(data, tab)], { type: "text/plain" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "sobersight_training_simulation.txt";
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
+  function saveKey() {
+    const k = $("apiKey").value.trim();
+    if (!k) return;
+    Store.set("ss_key", k);
+    Store.set("ss_provider", $("provider").value);
+    Store.set("ss_model", $("model").value.trim());
+    updateDot();
+  }
+  function clearKey() {
+    Store.del("ss_key"); $("apiKey").value = ""; updateDot();
+  }
+  function updateDot() {
+    const has = !!(Store.get("ss_key") || $("apiKey").value.trim());
+    $("apiDot").className = "w-2 h-2 rounded-full " + (has ? "bg-accent-600" : "bg-zinc-300");
+  }
+
+  function init() {
+    // sliders
+    $("sliders").innerHTML = SLIDER_DEFS.map(s => `
+      <div>
+        <div class="flex justify-between items-baseline mb-1">
+          <label class="text-xs text-zinc-600" for="sl_${s.id}">${s.label}</label>
+          <span id="slv_${s.id}" class="text-[11px] font-medium text-zinc-400">30</span>
+        </div>
+        <input id="sl_${s.id}" type="range" min="0" max="100" value="30" class="w-full"
+          oninput="document.getElementById('slv_${s.id}').textContent=this.value">
+      </div>`).join("");
+    // theme chips
+    $("themes").innerHTML = THEME_DEFS.map((t,i) => `
+      <label class="cursor-pointer">
+        <input type="checkbox" value="${t}" class="peer sr-only">
+        <span class="inline-block text-[11.5px] rounded-full border border-zinc-300 px-2.5 py-1 text-zinc-600 peer-checked:bg-accent-600 peer-checked:border-accent-600 peer-checked:text-white transition-colors select-none">${t}</span>
+      </label>`).join("");
+    // restore saved config
+    const savedKey = Store.get("ss_key");
+    if (savedKey) $("apiKey").value = savedKey;
+    const savedProv = Store.get("ss_provider");
+    if (savedProv) $("provider").value = savedProv;
+    $("model").value = Store.get("ss_model") || Api.defaults[$("provider").value];
+    $("provider").addEventListener("change", () =>
+      $("model").value = Api.defaults[$("provider").value]);
+    if (!Store.persistent())
+      $("storageNote").textContent = "Note: persistent storage is unavailable in this preview environment — your key is held in memory for this session only. Open the file locally for it to be remembered.";
+    updateDot();
+    renderTabs();
+  }
+
+  return {
+    generate, copy, download, saveKey, clearKey,
+    setTab(i){ tab = i; renderResults(); },
+    init,
+  };
+})();
+
+App.init();
+</script>
+</body>
+</html>
